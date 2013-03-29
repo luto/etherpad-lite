@@ -15,7 +15,6 @@
  */
 
 var padutils = require('./pad_utils').padutils;
-var padcookie = require('./pad_cookie').padcookie;
 var Tinycon = require('tinycon/tinycon');
 
 var chat = (function()
@@ -34,17 +33,17 @@ var chat = (function()
       chatMentions = 0;
       Tinycon.setBubble(0);
     },
-    stickToScreen: function(fromInitialCall) // Make chat stick to right hand side of screen
+    stickToScreen: function(fromInitialCall, shouldStick) // Make chat stick to right hand side of screen
     {
       chat.show();
-      if(!isStuck || fromInitialCall) { // Stick it to
-        padcookie.setPref("chatAlwaysVisible", true);
+      if(!isStuck || fromInitialCall || shouldStick) { // Stick it to
+        pad.settings.setValue("chatAlwaysVisible", "local", true);
         $('#chatbox').addClass("stickyChat");
         $('#chattext').css({"top":"0px"});
         $('#editorcontainer').css({"right":"192px", "width":"auto"});
         isStuck = true;
       } else { // Unstick it
-        padcookie.setPref("chatAlwaysVisible", false);
+        pad.settings.setValue("chatAlwaysVisible", "local", false);
         $('#chatbox').removeClass("stickyChat");
         $('#chattext').css({"top":"25px"});
         $('#editorcontainer').css({"right":"0px", "width":"100%"});
@@ -174,6 +173,10 @@ var chat = (function()
       if(!isHistoryAdd)
         self.scrollDown();
     },
+    stickyChatChanged : function(setting, value)
+    {
+      chat.stickToScreen(false, value);
+    },
     init: function(pad)
     {
       this._pad = pad;
@@ -186,6 +189,8 @@ var chat = (function()
           self.send();
         }
       });
+
+      pad.settings.getSetting("stickychat").callback = chat.stickyChatChanged;
       
 	  // initial messages are loaded in pad.js' _afterHandshake
 	  

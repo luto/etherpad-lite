@@ -27,7 +27,6 @@ var padeditor = (function()
 {
   var Ace2Editor = undefined;
   var pad = undefined;
-  var settings = undefined;
   var self = {
     ace: null,
     // this is accessed directly from other files
@@ -36,7 +35,6 @@ var padeditor = (function()
     {
       Ace2Editor = require('./ace').Ace2Editor;
       pad = _pad;
-      settings = pad.settings;
 
       function aceReady()
       {
@@ -54,28 +52,7 @@ var padeditor = (function()
       {
         self.ace.setProperty("dmesg", pad.dmesg);
       }
-      self.initViewOptions();
-      self.setViewOptions(initialViewOptions);
 
-      // view bar
-      $("#viewbarcontents").show();
-    },
-    initViewOptions: function()
-    {
-      padutils.bindCheckboxChange($("#options-linenoscheck"), function()
-      {
-        pad.changeViewOption('showLineNumbers', padutils.getCheckbox($("#options-linenoscheck")));
-      });
-      padutils.bindCheckboxChange($("#options-colorscheck"), function()
-      {
-        padcookie.setPref('showAuthorshipColors', padutils.getCheckbox("#options-colorscheck"));
-        pad.changeViewOption('showAuthorColors', padutils.getCheckbox("#options-colorscheck"));
-      });
-      $("#viewfontmenu").change(function()
-      {
-        pad.changeViewOption('useMonospaceFont', $("#viewfontmenu").val() == 'monospace');
-      });
-      
       html10n.bind('localized', function() {
         $("#languagemenu").val(html10n.getLanguage());
         // translate the value of 'unnamed' and 'Enter your name' textboxes in the userlist
@@ -88,43 +65,10 @@ var padeditor = (function()
             if(input.hasClass("editempty"))
               input.val(html10n.get(input.attr("data-l10n-id")));
           });
-      })
-      $("#languagemenu").val(html10n.getLanguage());
-      $("#languagemenu").change(function() {
-        pad.createCookie("language",$("#languagemenu").val(),null,'/');
-        window.html10n.localize([$("#languagemenu").val(), 'en']);
       });
-    },
-    setViewOptions: function(newOptions)
-    {
-      function getOption(key, defaultValue)
-      {
-        var value = String(newOptions[key]);
-        if (value == "true") return true;
-        if (value == "false") return false;
-        return defaultValue;
-      }
-      self.ace.setProperty("rtlIsTrue", settings.rtlIsTrue);
 
-      var v;
-
-      v = getOption('rtlIsTrue', false);
-      self.ace.setProperty("rtlIsTrue", v);
-
-      v = getOption('showLineNumbers', true);
-      self.ace.setProperty("showslinenumbers", v);
-      padutils.setCheckbox($("#options-linenoscheck"), v);
-
-      v = getOption('showAuthorColors', true);
-      self.ace.setProperty("showsauthorcolors", v);
-      padutils.setCheckbox($("#options-colorscheck"), v);
-      // Override from parameters if true
-      if (settings.noColors !== false)
-        self.ace.setProperty("showsauthorcolors", !settings.noColors);
-
-      v = getOption('useMonospaceFont', false);
-      self.ace.setProperty("textface", (v ? "monospace" : "Arial, sans-serif"));
-      $("#viewfontmenu").val(v ? "monospace" : "normal");
+      // view bar
+      $("#viewbarcontents").show();
     },
     dispose: function()
     {

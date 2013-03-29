@@ -1,10 +1,4 @@
 /**
- * This code is mostly from the old Etherpad. Please help us to comment this code. 
- * This helps other people to understand this code better and helps them to improve it.
- * TL;DR COMMENTS ON THIS FILE ARE HIGHLY APPRECIATED
- */
-
-/**
  * Copyright 2009 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -39,11 +33,11 @@ var padcookie = (function()
     return regexResult[1];
   }
 
-  function setRawCookie(safeText)
+  function setRawCookie(name, safeText)
   {
     var expiresDate = new Date();
     expiresDate.setFullYear(3000);
-    document.cookie = ('prefs=' + safeText + ';expires=' + expiresDate.toGMTString());
+    document.cookie = (name + '=' + safeText + ';expires=' + expiresDate.toGMTString());
   }
 
   function parseCookie(text)
@@ -65,66 +59,43 @@ var padcookie = (function()
     return escape(JSON.stringify(data));
   }
 
-  function saveCookie()
+  function saveCookie(name, cookieData)
   {
-    if (!inited)
-    {
-      return;
-    }
-    setRawCookie(stringifyCookie(cookieData));
+    setRawCookie(name, stringifyCookie(cookieData));
 
     if (pad.getIsProPad() && (!getRawCookie()) && (!alreadyWarnedAboutNoCookies))
     {
       alert("Warning: it appears that your browser does not have cookies enabled." + " EtherPad uses cookies to keep track of unique users for the purpose" + " of putting a quota on the number of active users.  Using EtherPad without " + " cookies may fill up your server's user quota faster than expected.");
       alreadyWarnedAboutNoCookies = true;
+      return false;
     }
+    return true;
   }
 
-  var wasNoCookie = true;
-  var cookieData = {};
+  function loadCookie(name)
+  {
+    var rawCookie = getRawCookie();
+    if (rawCookie)
+      return parseCookie(rawCookie);
+    else
+      return null;
+  }
+
   var alreadyWarnedAboutNoCookies = false;
-  var inited = false;
 
   var pad = undefined;
   var self = {
-    init: function(prefsToSet, _pad)
+    init: function(_pad)
     {
       pad = _pad;
-
-      var rawCookie = getRawCookie();
-      if (rawCookie)
-      {
-        var cookieObj = parseCookie(rawCookie);
-        if (cookieObj)
-        {
-          wasNoCookie = false; // there was a cookie
-          delete cookieObj.userId;
-          delete cookieObj.name;
-          delete cookieObj.colorId;
-          cookieData = cookieObj;
-        }
-      }
-
-      for (var k in prefsToSet)
-      {
-        cookieData[k] = prefsToSet[k];
-      }
-
-      inited = true;
-      saveCookie();
     },
-    wasNoCookie: function()
+    getCookie: function(name)
     {
-      return wasNoCookie;
+      return loadCookie(name);
     },
-    getPref: function(prefName)
+    setCookie: function(name, obj)
     {
-      return cookieData[prefName];
-    },
-    setPref: function(prefName, value)
-    {
-      cookieData[prefName] = value;
-      saveCookie();
+      return saveCookie(name, obj);
     }
   };
   return self;

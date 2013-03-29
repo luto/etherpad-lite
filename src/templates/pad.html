@@ -214,8 +214,12 @@
                     <label for="options-colorscheck" data-l10n-id="pad.settings.colorcheck"></label>
                 </p>
                 <p>
-                    <input type="checkbox" id="options-linenoscheck" checked>
+                    <input type="checkbox" id="options-linenoscheck">
                     <label for="options-linenoscheck" data-l10n-id="pad.settings.linenocheck"></label>
+                </p>
+                <p>
+                   <input type="checkbox" id="options-ignore-global">
+                   <label for="options-ignore-global" data-l10n-id="pad.settings.ignoreglobal"></label>
                 </p>
                 <% e.end_block(); %>
                 <table>
@@ -247,8 +251,26 @@
                 </table>
             </div>
             <div class="column">
-                <% e.begin_block("globalSettings"); %>
                 <h2 data-l10n-id="pad.settings.globalView"></h2>
+                <% e.begin_block("globalSettings"); %>
+                <p>
+                    <input type="checkbox" id="options-colorscheck-global">
+                    <label for="options-colorscheck-global" data-l10n-id="pad.settings.colorcheck"></label>
+                </p>
+                <p>
+                    <input type="checkbox" id="options-linenoscheck-global">
+                    <label for="options-linenoscheck-global" data-l10n-id="pad.settings.linenocheck"></label>
+                </p>
+                <% e.begin_block("globalSettings.dropdowns"); %>
+                <p>
+                    <label for="viewfontmenu-global" data-l10n-id="pad.settings.fontType">Font type:</label>
+                    <select id="viewfontmenu-global">
+                        <option value="normal" data-l10n-id="pad.settings.fontType.normal"></option>
+                        <option value="monospace" data-l10n-id="pad.settings.fontType.monospaced"></option>
+                    </select>
+                </p>
+                <% e.end_block(); %>
+                <p data-l10n-id="pad.settings.globalView.warning" id="globalViewWarning"></p>
                 <% e.end_block(); %>
             </div>
         </div>

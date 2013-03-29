@@ -34,7 +34,6 @@ JSON = require('./json2');
 var chat = require('./chat').chat;
 var getCollabClient = require('./collab_client').getCollabClient;
 var padconnectionstatus = require('./pad_connectionstatus').padconnectionstatus;
-var padcookie = require('./pad_cookie').padcookie;
 var paddocbar = require('./pad_docbar').paddocbar;
 var padeditbar = require('./pad_editbar').padeditbar;
 var padeditor = require('./pad_editor').padeditor;
@@ -44,6 +43,7 @@ var padsavedrevs = require('./pad_savedrevs');
 var paduserlist = require('./pad_userlist').paduserlist;
 var padutils = require('./pad_utils').padutils;
 var colorutils = require('./colorutils').colorutils;
+var settings = require('./settings');
 
 var createCookie = require('./pad_utils').createCookie;
 var readCookie = require('./pad_utils').readCookie;
@@ -100,56 +100,6 @@ function randomString()
     randomstring += chars.substring(rnum, rnum + 1);
   }
   return "t." + randomstring;
-}
-
-// This array represents all GET-parameters which can be used to change a setting.
-//   name:     the parameter-name, eg  `?noColors=true`  =>  `noColors`
-//   checkVal: the callback is only executed when
-//                * the parameter was supplied and matches checkVal
-//                * the parameter was supplied and checkVal is null
-//   callback: the function to call when all above succeeds, `val` is the value supplied by the user
-var getParameters = [
-  { name: "noColors",         checkVal: "true",  callback: function(val) { settings.noColors = true; $('#clearAuthorship').hide(); } },
-  { name: "showControls",     checkVal: "false", callback: function(val) { $('#editbar').hide(); $('#editorcontainer').css({"top":"0px"}); } },
-  { name: "showChat",         checkVal: "false", callback: function(val) { $('#chaticon').hide(); } },
-  { name: "showLineNumbers",  checkVal: "false", callback: function(val) { settings.LineNumbersDisabled = true; } },
-  { name: "useMonospaceFont", checkVal: "true",  callback: function(val) { settings.useMonospaceFontGlobal = true; } },
-  // If the username is set as a parameter we should set a global value that we can call once we have initiated the pad.
-  { name: "userName",         checkVal: null,    callback: function(val) { settings.globalUserName = decodeURIComponent(val); } },
-  // If the userColor is set as a parameter, set a global value to use once we have initiated the pad.
-  { name: "userColor",        checkVal: null,    callback: function(val) { settings.globalUserColor = decodeURIComponent(val); } },
-  { name: "rtl",              checkVal: "true",  callback: function(val) { settings.rtlIsTrue = true } },
-  { name: "alwaysShowChat",   checkVal: "true",  callback: function(val) { chat.stickToScreen(); } },
-  { name: "lang",             checkVal: null,    callback: function(val) { window.html10n.localize([val, 'en']); } }
-];
-
-function getParams()
-{
-  var params = getUrlVars()
-  
-  for(var i = 0; i < getParameters.length; i++)
-  {
-    var setting = getParameters[i];
-    var value = params[setting.name];
-    
-    if(value && (value == setting.checkVal || setting.checkVal == null))
-    {
-      setting.callback(value);
-    }
-  }
-}
-
-function getUrlVars()
-{
-  var vars = [], hash;
-  var hashes = window.location.href.slice(window.location.href.indexOf('?') + 1).split('&');
-  for(var i = 0; i < hashes.length; i++)
-  {
-    hash = hashes[i].split('=');
-    vars.push(hash[0]);
-    vars[hash[0]] = hash[1];
-  }
-  return vars;
 }
 
 function savePassword()
@@ -299,44 +249,6 @@ function handshake()
       padeditor.ace.callWithAce(function (ace) {
         ace.ace_setEditable(!clientVars.readonly);
       });
-
-      // If the LineNumbersDisabled value is set to true then we need to hide the Line Numbers
-      if (settings.LineNumbersDisabled == true)
-      {
-        pad.changeViewOption('showLineNumbers', false);
-      }
-
-      // If the noColors value is set to true then we need to hide the background colors on the ace spans
-      if (settings.noColors == true)
-      {
-        pad.changeViewOption('noColors', true);
-      }
-      
-      if (settings.rtlIsTrue == true)
-      {
-        pad.changeViewOption('rtl', true);
-      }
-
-      // If the Monospacefont value is set to true then change it to monospace.
-      if (settings.useMonospaceFontGlobal == true)
-      {
-        pad.changeViewOption('useMonospaceFont', true);
-      }
-      // if the globalUserName value is set we need to tell the server and the client about the new authorname
-      if (settings.globalUserName !== false)
-      {
-        pad.notifyChangeName(settings.globalUserName); // Notifies the server
-        pad.myUserInfo.name = settings.globalUserName;
-        $('#myusernameedit').attr({"value":settings.globalUserName}); // Updates the current users UI
-      }
-      if (settings.globalUserColor !== false && colorutils.isCssHex(settings.globalUserColor))
-      {
-
-        // Add a 'globalUserColor' property to myUserInfo, so collabClient knows we have a query parameter.
-        pad.myUserInfo.globalUserColor = settings.globalUserColor;
-        pad.notifyChangeColor(settings.globalUserColor); // Updates pad.myUserInfo.colorId
-        paduserlist.setMyUserInfo(pad.myUserInfo);
-      }
     }
     //This handles every Message after the clientVars
     else
@@ -381,6 +293,7 @@ var pad = {
   clientTimeOffset: null,
   preloadedImages: false,
   padOptions: {},
+  settings: settings,
 
   // these don't require init; clientVars should all go through here
   getPadId: function()
@@ -437,9 +350,53 @@ var pad = {
     {
       // start the custom js
       if (typeof customStart == "function") customStart();
-      getParams();
       handshake();
     });
+  },
+  applySetting: function(setting, value)
+  {
+    switch(setting.name)
+    {
+      case "useMonospaceFont":
+        padeditor.ace.setProperty("textface", (value ? "monospace" : "Arial, sans-serif"));
+        break;
+
+      case "showAuthorColors":
+        padeditor.ace.setProperty("showsauthorcolors", value);
+        if(value)
+          $('#clearAuthorship').show();
+        else
+          $('#clearAuthorship').hide();
+        break;
+
+      case "showLineNumbers":
+        padeditor.ace.setProperty("showslinenumbers", value);
+        break;
+
+      case "rtl":
+        padeditor.ace.setProperty("rtl", value);
+        break;
+
+      case "showControls":
+        if(value)
+        {
+          $('#editbar').show();
+          $('#editorcontainer').css({"top":""});
+        }
+        else
+        {
+          $('#editbar').hide();
+          $('#editorcontainer').css({"top":"0px"});
+        }
+        break;
+
+      case "showChat":
+        if(!value)
+          $('#chaticon').show();
+        else
+          $('#chaticon').hide();
+        break;
+    }
   },
   _afterHandshake: function()
   {
@@ -467,8 +424,6 @@ var pad = {
     }
 
     // order of inits is important here:
-    padcookie.init(clientVars.cookiePrefsToSet, this);
-    
     // $("#sidebarcheck").click(pad.togglewSidebar);
 
     pad.myUserInfo = {
@@ -533,13 +488,32 @@ var pad = {
       {
         padeditor.ace.focus();
       }, 0);
-      if(padcookie.getPref("chatAlwaysVisible")){ // if we have a cookie for always showing chat then show it
-        chat.stickToScreen(true); // stick it to the screen
-        $('#options-stickychat').prop("checked", true); // set the checkbox to on
+
+      settings.getSetting("useMonospaceFont").callback = pad.applySetting;
+      settings.getSetting("showAuthorColors").callback = pad.applySetting;
+      settings.getSetting("showLineNumbers").callback = pad.applySetting;
+      settings.getSetting("rtl").callback = pad.applySetting;
+      settings.getSetting("showControls").callback = pad.applySetting;
+      settings.getSetting("showChat").callback = pad.applySetting;
+
+      settings.loadSettings(pad);
+
+      // if the globalUserName value is set we need to tell the server and the client about the new authorname
+      if (!! settings.getValue("name"))
+      {
+        var name = settings.getValue("name");
+        pad.notifyChangeName(name); // Notifies the server
+        pad.myUserInfo.name = name;
+        $('#myusernameedit').val(name); // Updates the current users UI
       }
-      if(padcookie.getPref("showAuthorshipColors") == false){
-        pad.changeViewOption('showAuthorColors', false);
+      if (!! settings.getValue("userColor") && colorutils.isCssHex(settings.getValue("userColor")))
+      {
+        // Add a 'globalUserColor' property to myUserInfo, so collabClient knows we have a query parameter.
+        pad.myUserInfo.globalUserColor = settings.getValue("userColor");
+        pad.notifyChangeColor(settings.getValue("userColor")); // Updates pad.myUserInfo.colorId
+        paduserlist.setMyUserInfo(pad.myUserInfo);
       }
+
       hooks.aCallAll("postAceInit", {ace: padeditor.ace});
     }
   },
@@ -586,42 +560,6 @@ var pad = {
       options: options,
       changedBy: pad.myUserInfo.name || "unnamed"
     });
-  },
-  changeViewOption: function(key, value)
-  {
-    var options = {
-      view: {}
-    };
-    options.view[key] = value;
-    pad.handleOptionsChange(options);
-  },
-  handleOptionsChange: function(opts)
-  {
-    // opts object is a full set of options or just
-    // some options to change
-    if (opts.view)
-    {
-      if (!pad.padOptions.view)
-      {
-        pad.padOptions.view = {};
-      }
-      for (var k in opts.view)
-      {
-        pad.padOptions.view[k] = opts.view[k];
-      }
-      padeditor.setViewOptions(pad.padOptions.view);
-    }
-    if (opts.guestPolicy)
-    {
-      // order important here
-      pad.padOptions.guestPolicy = opts.guestPolicy;
-      paddocbar.setGuestPolicy(opts.guestPolicy);
-    }
-  },
-  getPadOptions: function()
-  {
-    // caller shouldn't mutate the object
-    return pad.padOptions;
   },
   isPadPublic: function()
   {
@@ -673,11 +611,6 @@ var pad = {
     else if (msg.type == 'revisionLabel')
     {
       padsavedrevs.newRevisionList(msg.revisionList);
-    }
-    else if (msg.type == 'padoptions')
-    {
-      var opts = msg.options;
-      pad.handleOptionsChange(opts);
     }
     else if (msg.type == 'guestanswer')
     {
@@ -786,9 +719,6 @@ var pad = {
     }
 
     // pad.determineSidebarVisibility(isConnected && !isInitialConnect);
-    pad.determineChatVisibility(isConnected && !isInitialConnect);
-    pad.determineAuthorshipColorsVisibility();
-
   },
 /*  determineSidebarVisibility: function(asNowConnectedFeedback)
   {
@@ -807,26 +737,6 @@ var pad = {
     }
   },
 */
-  determineChatVisibility: function(asNowConnectedFeedback){
-    var chatVisCookie = padcookie.getPref('chatAlwaysVisible');
-    if(chatVisCookie){ // if the cookie is set for chat always visible
-      chat.stickToScreen(true); // stick it to the screen
-      $('#options-stickychat').prop("checked", true); // set the checkbox to on
-    }
-    else{
-      $('#options-stickychat').prop("checked", false); // set the checkbox for off
-    }
-  },
-  determineAuthorshipColorsVisibility: function(){
-    var authColCookie = padcookie.getPref('showAuthorshipColors');
-    if (authColCookie){
-      pad.changeViewOption('showAuthorColors', true);
-      $('#options-colorscheck').prop("checked", true);
-    }
-    else {
-      $('#options-colorscheck').prop("checked", false);
-    }
-  },
   handleCollabAction: function(action)
   {
     if (action == "commitPerformed")
@@ -985,23 +895,11 @@ function init() {
   return pad.init();
 }
 
-var settings = {
-  LineNumbersDisabled: false
-, noColors: false
-, useMonospaceFontGlobal: false
-, globalUserName: false
-, globalUserColor: false
-, rtlIsTrue: false
-};
-
-pad.settings = settings;
 exports.baseURL = '';
 exports.settings = settings;
 exports.createCookie = createCookie;
 exports.readCookie = readCookie;
 exports.randomString = randomString;
-exports.getParams = getParams;
-exports.getUrlVars = getUrlVars;
 exports.savePassword = savePassword;
 exports.handshake = handshake;
 exports.pad = pad;
